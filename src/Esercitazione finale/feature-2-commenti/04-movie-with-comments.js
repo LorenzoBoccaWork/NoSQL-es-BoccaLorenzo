@@ -14,9 +14,9 @@ if (!targetMovie) {
       $addFields: {
         similarityScore: {
           $add: [
-            { $size: { $setIntersection: ["$genres", targetMovie.genres || []] } },  // Aggiungi || [] per sicurezza
-            { $size: { $setIntersection: ["$directors", targetMovie.directors || []] } },
-            { $size: { $setIntersection: ["$cast", targetMovie.cast || []] } }
+            { $size: { $setIntersection: ["$genres", targetMovie.genres] } },
+            { $size: { $setIntersection: ["$directors", targetMovie.directors] } },
+            { $size: { $setIntersection: ["$cast", targetMovie.cast] } }
           ]
         }
       }
