@@ -1,42 +1,46 @@
 // ### 4.1
 // Io calcolo un punteggio di similarità per film simili basandomi su generi, registi e cast, escludendo il film stesso.
 
-const movieId = ObjectId("573a1390f29313caabcd4135"); 
+const movieId = ObjectId("573a1390f29313caabcd4323"); 
 
 const targetMovie = db.movies.findOne({ _id: movieId }, { genres: 1, directors: 1, cast: 1, _id: 0 });
 
-db.movies.aggregate([
-  { $match: { _id: { $ne: movieId } } },
-  {
-    $addFields: {
-      similarityScore: {
-        $add: [
-          { $size: { $setIntersection: ["$genres", targetMovie.genres] } },
-          { $size: { $setIntersection: ["$directors", targetMovie.directors] } },
-          { $size: { $setIntersection: ["$cast", targetMovie.cast] } }
-        ]
+if (!targetMovie) {
+  print("Errore: Film non trovato. Usa un movieId valido.");
+} else {
+  db.movies.aggregate([
+    { $match: { _id: { $ne: movieId } } },
+    {
+      $addFields: {
+        similarityScore: {
+          $add: [
+            { $size: { $setIntersection: ["$genres", targetMovie.genres || []] } },  // Aggiungi || [] per sicurezza
+            { $size: { $setIntersection: ["$directors", targetMovie.directors || []] } },
+            { $size: { $setIntersection: ["$cast", targetMovie.cast || []] } }
+          ]
+        }
       }
-    }
-  },
-  { $match: { similarityScore: { $gt: 0 } } },
-  {
-    $project: {
-      title: 1,
-      year: 1,
-      poster: 1,
-      "imdb.rating": 1,
-      genres: 1,
-      similarityScore: 1,
-      _id: 0
-    }
-  },
-  { $sort: { similarityScore: -1, "imdb.rating": -1 } },
-  { $limit: 10 }
-]).toArray();
+    },
+    { $match: { similarityScore: { $gt: 0 } } },
+    {
+      $project: {
+        title: 1,
+        year: 1,
+        poster: 1,
+        "imdb.rating": 1,
+        genres: 1,
+        similarityScore: 1,
+        _id: 0
+      }
+    },
+    { $sort: { similarityScore: -1, "imdb.rating": -1 } },
+    { $limit: 10 }
+  ]).toArray();
+}
 
 // Soluzione:
 
-// !!!!!!!!!!! Non so perchè mi da errore su genres
+//Errore, film non trovato. Ciò vuol dire che servirebbe un ID valido presente nel database.
 
 // ### 4.2
 // Io trovo preferenze dell'utente dai commenti e raccomando film simili non commentati.
@@ -45,54 +49,60 @@ const userId = "roger_ashton-griffiths@gameofthron.es";
 
 const commentedMovies = db.comments.distinct("movie_id", { email: userId });
 
-const userPrefs = db.movies.aggregate([
-  { $match: { _id: { $in: commentedMovies } } },
-  {
-    $group: {
-      _id: null,
-      genres: { $addToSet: "$genres" },
-      directors: { $addToSet: "$directors" },
-      cast: { $addToSet: "$cast" }
-    }
-  },
-  { $project: { _id: 0 } }
-]).toArray()[0];
-
-const flatGenres = userPrefs.genres.flat();
-const flatDirectors = userPrefs.directors.flat();
-const flatCast = userPrefs.cast.flat();
-
-db.movies.aggregate([
-  { $match: { _id: { $nin: commentedMovies } } },  // Escludi già commentati
-  {
-    $addFields: {
-      similarityScore: {
-        $add: [
-          { $size: { $setIntersection: ["$genres", flatGenres] } },
-          { $size: { $setIntersection: ["$directors", flatDirectors] } },
-          { $size: { $setIntersection: ["$cast", flatCast] } }
-        ]
+if (commentedMovies.length === 0) {
+  print("Errore: Utente senza commenti. Usa un userId con commenti.");
+} else {
+  const userPrefs = db.movies.aggregate([
+    { $match: { _id: { $in: commentedMovies } } },
+    {
+      $group: {
+        _id: null,
+        genres: { $addToSet: "$genres" },
+        directors: { $addToSet: "$directors" },
+        cast: { $addToSet: "$cast" }
       }
-    }
-  },
-  { $match: { similarityScore: { $gt: 0 } } },
-  {
-    $project: {
-      title: 1,
-      year: 1,
-      poster: 1,
-      "imdb.rating": 1,
-      similarityScore: 1,
-      _id: 0
-    }
-  },
-  { $sort: { similarityScore: -1, "imdb.rating": -1 } },
-  { $limit: 10 }
-]).toArray();
+    },
+    { $project: { _id: 0 } }
+  ]).toArray()[0];
+  if (!userPrefs) {
+    print("Errore: Nessuna preferenza trovata.");
+  } else {
+    const flatGenres = (userPrefs.genres || []).flat();
+    const flatDirectors = (userPrefs.directors || []).flat();
+    const flatCast = (userPrefs.cast || []).flat();
 
+    db.movies.aggregate([
+      { $match: { _id: { $nin: commentedMovies } } },  // Escludi già commentati
+      {
+        $addFields: {
+          similarityScore: {
+            $add: [
+              { $size: { $setIntersection: ["$genres", flatGenres] } },
+              { $size: { $setIntersection: ["$directors", flatDirectors] } },
+              { $size: { $setIntersection: ["$cast", flatCast] } }
+            ]
+          }
+        }
+      },
+      { $match: { similarityScore: { $gt: 0 } } },
+      {
+        $project: {
+          title: 1,
+          year: 1,
+                 poster: 1,
+          "imdb.rating": 1,
+          similarityScore: 1,
+          _id: 0
+        }
+      },
+      { $sort: { similarityScore: -1, "imdb.rating": -1 } },
+      { $limit: 10 }
+    ]).toArray();
+  }
+}
 // Soluzione:
 
-
+// Non mi funziona :( !!!!!!!!!!!!!!!
 
 // ### 4.3
 // Io calcolo un punteggio nascosto per film sottovalutati basandomi su rating, commenti e awards, filtrando per rating alto e commenti bassi.

@@ -452,7 +452,19 @@ db.movies.aggregate([
       byDecade: [
         {
           $addFields: {
-            decade: { $subtract: ["$year", { $mod: ["$year", 10] }] }
+            yearNum: {
+              $convert: {
+                input: "$year",
+                to: "int",
+                onError: null  // Ignora errori di conversione
+              }
+            }
+          }
+        },
+        { $match: { yearNum: { $ne: null } } },  // Filtra documenti senza year valido
+        {
+          $addFields: {
+            decade: { $subtract: ["$yearNum", { $mod: ["$yearNum", 10] }] }
           }
         },
         { $unwind: "$countries" },
@@ -481,4 +493,23 @@ db.movies.aggregate([
 
 // Soluzione:
 
-// !!!!!!!!!!!! Mi da errore
+// [
+//   {
+//     overall: [
+//       [Object], [Object],
+//       [Object], [Object],
+//       [Object], [Object],
+//       [Object], [Object],
+//       [Object], [Object]
+//     ],
+//     byDecade: [
+//       [Object], [Object], [Object],
+//       [Object], [Object], [Object],
+//       [Object], [Object], [Object],
+//       [Object], [Object], [Object],
+//       [Object], [Object], [Object],
+//       [Object], [Object], [Object],
+//       [Object], [Object]
+//     ]
+//   }
+// ]
