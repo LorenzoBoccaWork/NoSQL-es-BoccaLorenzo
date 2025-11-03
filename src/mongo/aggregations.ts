@@ -1,0 +1,3 @@
+exsport const getMovieWComments = async () => {
+    
+}
